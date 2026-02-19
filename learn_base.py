@@ -103,8 +103,9 @@ for i in range(1):
     total_node_set = set(np.unique(np.hstack([g_df.u.values, g_df.i.values])))
     num_total_unique_nodes = len(total_node_set)
 
-    mask_node_set = set(random.sample(set(src_l[ts_l > val_time]).union(set(dst_l[ts_l > val_time])),
-                                      int(0.1 * num_total_unique_nodes)))
+    candidate_nodes = sorted(set(src_l[ts_l > val_time]).union(set(dst_l[ts_l > val_time])))
+    sample_size = min(int(0.1 * num_total_unique_nodes), len(candidate_nodes))
+    mask_node_set = set(random.sample(candidate_nodes, sample_size))
     mask_src_flag = g_df.u.map(lambda x: x in mask_node_set).values
     mask_dst_flag = g_df.i.map(lambda x: x in mask_node_set).values
     none_node_flag = (1 - mask_src_flag) * (1 - mask_dst_flag)
@@ -145,7 +146,10 @@ for i in range(1):
     test_rand_sampler = RandEdgeSampler((train_src_l, val_src_l, test_src_l), (train_dst_l, val_dst_l, test_dst_l))
 
     ### Model initialize
-    args.device = torch.device('cuda:{}'.format(args.gpu))
+    if args.gpu < 0 or not torch.cuda.is_available():
+        args.device = torch.device("cpu")
+    else:
+        args.device = torch.device('cuda:{}'.format(args.gpu))
     if args.base_type == "tgn":
         base_model = TGN(n_feat, e_feat, n_neighbors=args.n_degree, device=args.device, n_layers=args.n_layer,
                          n_heads=args.n_head, dropout=args.drop_out)
@@ -253,8 +257,6 @@ for i in range(1):
                 best_aps = test_ap
             if early_stopper.early_stop_check(test_ap):
                 break
-
-
 
 
 

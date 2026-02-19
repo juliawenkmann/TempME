@@ -80,8 +80,9 @@ def load_data(mode):
     random.seed(2023)
     total_node_set = set(np.unique(np.hstack([g_df.u.values, g_df.i.values])))
     num_total_unique_nodes = len(total_node_set)
-    mask_node_set = set(random.sample(set(src_l[ts_l > val_time]).union(set(dst_l[ts_l > val_time])),
-                                      int(0.1 * num_total_unique_nodes)))
+    candidate_nodes = sorted(set(src_l[ts_l > val_time]).union(set(dst_l[ts_l > val_time])))
+    sample_size = min(int(0.1 * num_total_unique_nodes), len(candidate_nodes))
+    mask_node_set = set(random.sample(candidate_nodes, sample_size))
     mask_src_flag = g_df.u.map(lambda x: x in mask_node_set).values
     mask_dst_flag = g_df.i.map(lambda x: x in mask_node_set).values
     none_node_flag = (1 - mask_src_flag) * (1 - mask_dst_flag)
@@ -622,7 +623,10 @@ def train(args, base_model, train_pack, test_pack, train_edge, test_edge):
                                       test_dst_l, test_ts_l, test_e_idx_l, epoch, best_acc, test_pack, test_edge)
 
 if __name__ == '__main__':
-    args.device = torch.device('cuda:{}'.format(args.gpu))
+    if args.gpu < 0 or not torch.cuda.is_available():
+        args.device = torch.device("cpu")
+    else:
+        args.device = torch.device('cuda:{}'.format(args.gpu))
     args.n_degree = degree_dict[args.data]
     args.ratios = [0.01, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.2, 0.22, 0.24, 0.26, 0.28, 0.30]
     gnn_model_path = osp.join(osp.dirname(osp.realpath(__file__)), 'params', 'tgnn',
@@ -642,4 +646,3 @@ if __name__ == '__main__':
     test_edge = np.load(osp.join(osp.dirname(osp.realpath(__file__)),  'processed', f'{args.data}_test_edge.npy'))
 
     train(args, base_model, train_pack=train_pack, test_pack=test_pack, train_edge=train_edge, test_edge=test_edge)
-
